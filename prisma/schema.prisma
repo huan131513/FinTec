@@ -1,0 +1,67 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Company {
+  id          String       @id @default(cuid())
+  ticker      String       @unique
+  name        String
+  description String?
+  createdAt   DateTime     @default(now())
+  holdings    BtcHolding[]
+  mnavRecords MnavRecord[]
+}
+
+model BtcHolding {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  date      DateTime @db.Date
+  totalBtc  Float
+  source    String?
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, date])
+  @@index([companyId, date])
+}
+
+model BtcPrice {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  priceUsd  Float
+  createdAt DateTime @default(now())
+
+  @@index([date])
+}
+
+model StockPrice {
+  id         String   @id @default(cuid())
+  ticker     String
+  date       DateTime @db.Date
+  closePrice Float
+  marketCap  Float?
+  createdAt  DateTime @default(now())
+
+  @@unique([ticker, date])
+  @@index([ticker, date])
+}
+
+model MnavRecord {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id])
+  date        DateTime @db.Date
+  mnav        Float
+  marketCap   Float
+  btcHoldings Float
+  btcPrice    Float
+  createdAt   DateTime @default(now())
+
+  @@unique([companyId, date])
+  @@index([companyId, date])
+}
