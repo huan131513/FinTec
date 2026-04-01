@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { YahooFinance } from "yahoo-finance2";
-const yahooFinance = new YahooFinance();
+import YahooFinanceClass from "yahoo-finance2";
+const yahooFinance = new YahooFinanceClass();
 
 export async function fetchAndStoreStockPrices(
   ticker: string = "MSTR",

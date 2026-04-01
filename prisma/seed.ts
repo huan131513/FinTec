@@ -67,7 +67,7 @@ async function main() {
   // 4. Fetch MSTR stock prices from Yahoo Finance
   console.log("Fetching MSTR stock prices from Yahoo Finance...");
   try {
-    const { YahooFinance } = await import("yahoo-finance2");
+    const YahooFinance = (await import("yahoo-finance2")).default;
     const yahooFinance = new YahooFinance();
     const endDate = new Date();
     const startDate = new Date();
