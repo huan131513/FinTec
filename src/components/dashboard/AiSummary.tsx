@@ -18,11 +18,72 @@ interface AiSummaryProps {
 
 type Status = "idle" | "loading" | "done" | "error";
 
+interface Section {
+  title: string;
+  content: string;
+}
+
+// Section visual config
+const SECTION_META: Record<
+  string,
+  { label: string; color: string; bg: string; icon: string }
+> = {
+  "Current Status": {
+    label: "Current Status",
+    color: "text-blue-400",
+    bg: "bg-blue-500/10 border-blue-500/20",
+    icon: "◉",
+  },
+  "Trend Analysis": {
+    label: "Trend Analysis",
+    color: "text-violet-400",
+    bg: "bg-violet-500/10 border-violet-500/20",
+    icon: "↗",
+  },
+  "Key Insights": {
+    label: "Key Insights",
+    color: "text-emerald-400",
+    bg: "bg-emerald-500/10 border-emerald-500/20",
+    icon: "✦",
+  },
+  "Buy Point Analysis": {
+    label: "Buy Point Analysis",
+    color: "text-amber-400",
+    bg: "bg-amber-500/10 border-amber-500/20",
+    icon: "⬥",
+  },
+};
+
+/**
+ * Parse Gemini's **Section Title** + paragraph format into structured sections.
+ * Falls back to plain paragraphs if formatting is unexpected.
+ */
+function parseSections(text: string): Section[] {
+  const sectionRegex = /\*\*(.+?)\*\*\s*\n([\s\S]+?)(?=\n\s*\*\*|$)/g;
+  const sections: Section[] = [];
+  let match: RegExpExecArray | null;
+
+  while ((match = sectionRegex.exec(text)) !== null) {
+    sections.push({
+      title: match[1].trim(),
+      content: match[2].trim(),
+    });
+  }
+
+  if (sections.length > 0) return sections;
+
+  // Fallback: treat each double-newline block as an unnamed section
+  return text
+    .split(/\n\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((content) => ({ title: "", content }));
+}
+
 export function AiSummary({ data, range }: AiSummaryProps) {
   const [status, setStatus] = useState<Status>("idle");
-  const [summary, setSummary] = useState<string>("");
+  const [sections, setSections] = useState<Section[]>([]);
   const [error, setError] = useState<string>("");
-  // Track which data range this summary was generated for
   const [summaryRange, setSummaryRange] = useState<string>("");
 
   const isStale = status === "done" && summaryRange !== range;
@@ -37,35 +98,26 @@ export function AiSummary({ data, range }: AiSummaryProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ data, range }),
       });
-
       const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Unknown error");
 
-      if (!res.ok) {
-        throw new Error(json.error ?? "Unknown error");
-      }
-
-      setSummary(json.summary);
+      setSections(parseSections(json.summary));
       setSummaryRange(range);
       setStatus("done");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate summary.");
+      setError(
+        err instanceof Error ? err.message : "Failed to generate summary.",
+      );
       setStatus("error");
     }
   }
 
-  // Split the summary into paragraphs for nicer rendering
-  const paragraphs = summary
-    .split(/\n+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-
   return (
     <div className="rounded-2xl border border-card-border bg-card p-6">
-      {/* Header row */}
+      {/* ── Top bar ── */}
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {/* Gemini spark icon */}
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 text-white text-sm font-bold shrink-0">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 text-sm font-bold text-white shadow-lg">
             AI
           </div>
           <div>
@@ -73,8 +125,10 @@ export function AiSummary({ data, range }: AiSummaryProps) {
               AI-Generated Market Insight
             </h3>
             <p className="text-xs text-muted">
-              Powered by Gemini 1.5 Flash · based on{" "}
-              {data.length} trading days
+              Gemini 2.5 Flash · {data.length} trading days
+              {isStale && (
+                <span className="ml-2 text-amber-400">· stale, refresh for {range}</span>
+              )}
             </p>
           </div>
         </div>
@@ -83,106 +137,135 @@ export function AiSummary({ data, range }: AiSummaryProps) {
           onClick={generate}
           disabled={status === "loading"}
           className={`
-            flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium
-            transition-all duration-200
+            flex shrink-0 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium
+            transition-all duration-200 active:scale-95
             ${
               status === "loading"
-                ? "cursor-not-allowed bg-card border border-card-border text-muted"
+                ? "cursor-not-allowed border-card-border text-muted"
                 : isStale
-                  ? "bg-amber-500/10 border border-amber-500/30 text-amber-400 hover:bg-amber-500/20"
-                  : "bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20"
+                  ? "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                  : "border-accent/30 bg-accent/10 text-accent hover:bg-accent/20"
             }
           `}
         >
           {status === "loading" ? (
-            <>
-              <Spinner />
-              Analysing…
-            </>
-          ) : isStale ? (
-            <>
-              <RefreshIcon />
-              Refresh for {range}
-            </>
+            <><Spinner /> Analysing…</>
           ) : status === "done" ? (
-            <>
-              <RefreshIcon />
-              Regenerate
-            </>
+            <><RefreshIcon /> {isStale ? "Refresh" : "Regenerate"}</>
           ) : (
-            <>
-              <SparkIcon />
-              Generate Analysis
-            </>
+            <><SparkIcon /> Generate Analysis</>
           )}
         </button>
       </div>
 
-      {/* Content area */}
-      {status === "idle" && (
-        <div className="mt-5 flex items-center justify-center rounded-xl border border-dashed border-card-border py-10">
-          <p className="text-sm text-muted">
-            Click &ldquo;Generate Analysis&rdquo; to get AI-powered insights on the current {range} data.
-          </p>
-        </div>
-      )}
-
-      {status === "loading" && (
-        <div className="mt-5 space-y-3">
-          <div className="h-4 w-full animate-pulse rounded-full bg-card-border" />
-          <div className="h-4 w-5/6 animate-pulse rounded-full bg-card-border" />
-          <div className="h-4 w-4/6 animate-pulse rounded-full bg-card-border" />
-          <div className="mt-4 h-4 w-full animate-pulse rounded-full bg-card-border" />
-          <div className="h-4 w-3/4 animate-pulse rounded-full bg-card-border" />
-        </div>
-      )}
-
-      {status === "error" && (
-        <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3">
-          <p className="text-sm text-red-400">{error}</p>
-        </div>
-      )}
-
-      {status === "done" && (
-        <div className={`mt-5 space-y-4 ${isStale ? "opacity-60" : ""}`}>
-          {isStale && (
-            <p className="text-xs text-amber-400">
-              ⚠ This analysis was generated for a different time range. Click &ldquo;Refresh&rdquo; to update.
+      {/* ── Body ── */}
+      <div className="mt-5">
+        {/* IDLE */}
+        {status === "idle" && (
+          <div className="flex items-center justify-center rounded-xl border border-dashed border-card-border py-10">
+            <p className="text-center text-sm text-muted">
+              Click <span className="text-accent">Generate Analysis</span> to
+              get AI-powered insights including buy point analysis.
             </p>
-          )}
-          {paragraphs.map((para, i) => (
-            <p key={i} className="text-sm leading-relaxed text-muted">
-              {para}
-            </p>
-          ))}
-          <p className="pt-2 text-xs text-muted/50">
-            Generated by Google Gemini · For informational purposes only, not financial advice.
-          </p>
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* LOADING — skeleton chat bubble */}
+        {status === "loading" && (
+          <div className="flex gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 text-xs font-bold text-white">
+              AI
+            </div>
+            <div className="flex-1 space-y-3 rounded-2xl rounded-tl-sm border border-card-border bg-background p-5">
+              {[100, 85, 60, 90, 70, 45].map((w, i) => (
+                <div
+                  key={i}
+                  className="h-3.5 animate-pulse rounded-full bg-card-border"
+                  style={{ width: `${w}%` }}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ERROR */}
+        {status === "error" && (
+          <div className="flex gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-red-500/20 text-xs font-bold text-red-400">
+              !
+            </div>
+            <div className="flex-1 rounded-2xl rounded-tl-sm border border-red-500/20 bg-red-500/5 p-4">
+              <p className="text-sm text-red-400">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* DONE — chat bubble with sections */}
+        {status === "done" && (
+          <div className="flex gap-3">
+            {/* Avatar */}
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 text-xs font-bold text-white shadow-md">
+              AI
+            </div>
+
+            {/* Bubble */}
+            <div className="flex-1 rounded-2xl rounded-tl-sm border border-card-border bg-background p-5">
+              <div className="space-y-4">
+                {sections.map((sec, i) => {
+                  const meta = SECTION_META[sec.title];
+
+                  // Named section with coloured badge
+                  if (meta) {
+                    return (
+                      <div
+                        key={i}
+                        className={`rounded-xl border p-4 ${meta.bg}`}
+                      >
+                        <div
+                          className={`mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-widest ${meta.color}`}
+                        >
+                          <span>{meta.icon}</span>
+                          <span>{meta.label}</span>
+                        </div>
+                        <p className="text-sm leading-relaxed text-foreground/85">
+                          {sec.content}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  // Fallback plain paragraph
+                  return (
+                    <p
+                      key={i}
+                      className="text-sm leading-relaxed text-foreground/80"
+                    >
+                      {sec.content}
+                    </p>
+                  );
+                })}
+              </div>
+
+              {/* Footer */}
+              <p className="mt-4 border-t border-card-border pt-3 text-xs text-muted/50">
+                Generated by Google Gemini 2.5 Flash · For informational
+                purposes only — not financial advice.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-/* ── Small inline SVG icons ── */
+/* ── Icons ── */
 
 function Spinner() {
   return (
-    <svg
-      className="h-4 w-4 animate-spin"
-      fill="none"
-      viewBox="0 0 24 24"
-    >
-      <circle
-        className="opacity-25"
-        cx="12" cy="12" r="10"
-        stroke="currentColor" strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-      />
+    <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
     </svg>
   );
 }

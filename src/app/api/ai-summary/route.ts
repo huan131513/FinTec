@@ -16,20 +16,23 @@ function computeStats(data: DataPoint[]) {
   const max = Math.max(...mnavValues);
   const avg = mnavValues.reduce((a, b) => a + b, 0) / mnavValues.length;
 
-  // Find the data point closest to the median mNAV date for "mid-period" context
-  const midIdx = Math.floor(data.length / 2);
+  // Find the lowest mNAV point (potential historical buy zone)
+  const minIdx = mnavValues.indexOf(min);
+  const maxIdx = mnavValues.indexOf(max);
 
-  return { min, max, avg, midPoint: data[midIdx] };
+  return { min, max, avg, minDate: data[minIdx].date, maxDate: data[maxIdx].date };
 }
 
 function buildPrompt(data: DataPoint[], range: string): string {
   const latest = data[data.length - 1];
   const earliest = data[0];
-  const { min, max, avg } = computeStats(data);
+  const { min, max, avg, minDate, maxDate } = computeStats(data);
 
   const mnavChange = ((latest.mnav - earliest.mnav) / earliest.mnav) * 100;
   const isPremium = latest.premiumPct >= 0;
   const premiumLabel = isPremium ? "premium" : "discount";
+  const percentileRank =
+    ((latest.mnav - min) / (max - min)) * 100;
 
   const rangeLabel =
     range === "all"
@@ -46,36 +49,36 @@ function buildPrompt(data: DataPoint[], range: string): string {
   const formatBtc = (n: number) =>
     n >= 1000 ? `${(n / 1000).toFixed(1)}K BTC` : `${n.toFixed(0)} BTC`;
 
-  return `You are a professional financial analyst specializing in Bitcoin treasury companies and digital-asset capital markets.
+  return `You are a professional financial analyst specializing in Bitcoin treasury companies and digital-asset capital markets. You communicate in a clear, direct style — like a senior analyst replying to a client message.
 
-Analyze the following MicroStrategy (MSTR/Strategy) mNAV data covering ${rangeLabel} (${earliest.date} → ${latest.date}, ${data.length} trading days):
+MSTR mNAV DATA — ${rangeLabel} (${earliest.date} → ${latest.date}, ${data.length} trading days):
 
-LATEST DATA POINT (${latest.date}):
-  • mNAV: ${latest.mnav.toFixed(2)}x  →  ${Math.abs(latest.premiumPct).toFixed(2)}% ${premiumLabel} to Bitcoin NAV
-  • Bitcoin Price: $${latest.btcPrice.toLocaleString()}
-  • MSTR Market Cap: ${formatUSD(latest.marketCap)}
-  • BTC Holdings: ${formatBtc(latest.btcHoldings)}
+LATEST (${latest.date}):
+  mNAV: ${latest.mnav.toFixed(2)}x | ${Math.abs(latest.premiumPct).toFixed(2)}% ${premiumLabel} to BTC NAV
+  BTC Price: $${latest.btcPrice.toLocaleString()} | Market Cap: ${formatUSD(latest.marketCap)} | Holdings: ${formatBtc(latest.btcHoldings)}
 
-PERIOD STATISTICS:
-  • mNAV range: ${min.toFixed(2)}x – ${max.toFixed(2)}x
-  • Average mNAV: ${avg.toFixed(2)}x
-  • mNAV at period start: ${earliest.mnav.toFixed(2)}x
-  • mNAV change over period: ${mnavChange >= 0 ? "+" : ""}${mnavChange.toFixed(1)}%
+PERIOD STATS:
+  Range: ${min.toFixed(2)}x (${minDate}) – ${max.toFixed(2)}x (${maxDate})
+  Average: ${avg.toFixed(2)}x | Period change: ${mnavChange >= 0 ? "+" : ""}${mnavChange.toFixed(1)}%
+  Current mNAV percentile in period: ${percentileRank.toFixed(0)}th percentile
 
-TASK:
-Write a clear, professional analysis of exactly 3 paragraphs:
+---
 
-Paragraph 1 — Current status: Interpret the current mNAV of ${latest.mnav.toFixed(2)}x. What does this ${premiumLabel} imply for investors? How does it compare to the historical range observed in this period?
+Reply in EXACTLY the following 4-section format. Each section starts with its label on its own line, then one paragraph of text. Do not add any extra text outside these sections.
 
-Paragraph 2 — Trend & pattern analysis: Describe the mNAV trend over this period. Was it rising, falling, or volatile? Identify any notable inflection points or patterns. Relate mNAV movement to Bitcoin price where relevant.
+**Current Status**
+[Interpret the current mNAV of ${latest.mnav.toFixed(2)}x. What does this ${premiumLabel} mean? How expensive or cheap is MSTR relative to its BTC holdings right now? Reference the percentile rank and historical range.]
 
-Paragraph 3 — Key insight & outlook: Summarise the single most important takeaway for an investor monitoring MSTR mNAV. Briefly touch on what factors could drive mNAV higher or lower from here.
+**Trend Analysis**
+[Describe the mNAV movement over this period. Was it rising, falling, mean-reverting? Highlight the most notable shift. Connect mNAV changes to BTC price movements where relevant. Use specific dates and numbers.]
 
-Rules:
-- Use specific numbers from the data above.
-- Write in plain paragraphs — no markdown headers, no bullet points, no bold/italic.
-- Keep total length under 250 words.
-- Tone: concise, objective, professional.`;
+**Key Insights**
+[Give the single most important takeaway for someone watching MSTR. What is driving the current premium/discount? What would need to happen for mNAV to compress or expand?]
+
+**Buy Point Analysis**
+[Based on the historical mNAV range of ${min.toFixed(2)}x–${max.toFixed(2)}x and the current reading of ${latest.mnav.toFixed(2)}x (${percentileRank.toFixed(0)}th percentile), assess whether current levels represent a historically attractive or expensive entry. Identify the mNAV zone that historically corresponded to better risk/reward (reference the low near ${min.toFixed(2)}x on ${minDate}). End with a one-sentence risk reminder that this is not financial advice.]
+
+Rules: use specific numbers, no bullet points inside paragraphs, professional but readable tone, each paragraph 2–4 sentences.`;
 }
 
 export async function POST(request: NextRequest) {
@@ -92,10 +95,10 @@ export async function POST(request: NextRequest) {
 
     const client = getGeminiClient();
     const model = client.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash",
       generationConfig: {
         temperature: 0.4,
-        maxOutputTokens: 512,
+        maxOutputTokens: 1500,
       },
     });
 
