@@ -27,13 +27,17 @@ async function getMnavData() {
 
   return {
     company: { ticker: company.ticker, name: company.name },
-    data: records.map((r) => ({
-      date: r.date.toISOString().split("T")[0],
-      mnav: Math.round(r.mnav * 100) / 100,
-      btcPrice: Math.round(r.btcPrice),
-      marketCap: r.marketCap,
-      btcHoldings: r.btcHoldings,
-    })),
+    data: records.map((r) => {
+      const mnav = Math.round(r.mnav * 100) / 100;
+      return {
+        date: r.date.toISOString().split("T")[0],
+        mnav,
+        btcPrice: Math.round(r.btcPrice),
+        marketCap: r.marketCap,
+        btcHoldings: r.btcHoldings,
+        premiumPct: Math.round((mnav - 1) * 10000) / 100,
+      };
+    }),
   };
 }
 

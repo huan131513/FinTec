@@ -6,6 +6,7 @@ interface StatsCardsProps {
   marketCap: number;
   btcHoldings: number;
   mnavChange?: number;
+  premiumPct: number;
 }
 
 function formatNumber(num: number): string {
@@ -26,14 +27,28 @@ export function StatsCards({
   marketCap,
   btcHoldings,
   mnavChange,
+  premiumPct,
 }: StatsCardsProps) {
+  const isPremium = premiumPct >= 0;
   const stats = [
     {
       label: "mNAV",
       value: currentMnav.toFixed(2) + "x",
       change: mnavChange,
-      description: currentMnav > 1 ? "Premium" : "Discount",
-      color: currentMnav > 1 ? "text-green-400" : "text-red-400",
+      description: isPremium ? "Trading at premium" : "Trading at discount",
+      color: isPremium ? "text-green-400" : "text-red-400",
+    },
+    {
+      label: "Premium to NAV",
+      value: isPremium ? `+${premiumPct.toFixed(2)}%` : "—",
+      description: "Above BTC NAV",
+      color: "text-green-400",
+    },
+    {
+      label: "Discount to NAV",
+      value: !isPremium ? `${Math.abs(premiumPct).toFixed(2)}%` : "—",
+      description: "Below BTC NAV",
+      color: "text-red-400",
     },
     {
       label: "BTC Price",
@@ -56,7 +71,7 @@ export function StatsCards({
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-6">
       {stats.map((stat) => (
         <Card key={stat.label}>
           <p className="text-sm text-muted">{stat.label}</p>

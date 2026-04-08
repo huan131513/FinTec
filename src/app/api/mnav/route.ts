@@ -55,12 +55,16 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     company: { ticker: company.ticker, name: company.name },
-    data: data.map((d) => ({
-      date: d.date.toISOString().split("T")[0],
-      mnav: Math.round(d.mnav * 100) / 100,
-      btcPrice: Math.round(d.btcPrice),
-      marketCap: d.marketCap,
-      btcHoldings: d.btcHoldings,
-    })),
+    data: data.map((d) => {
+      const mnav = Math.round(d.mnav * 100) / 100;
+      return {
+        date: d.date.toISOString().split("T")[0],
+        mnav,
+        btcPrice: Math.round(d.btcPrice),
+        marketCap: d.marketCap,
+        btcHoldings: d.btcHoldings,
+        premiumPct: Math.round((mnav - 1) * 10000) / 100,
+      };
+    }),
   });
 }

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import { MnavChart } from "./MnavChart";
+import { PremiumDiscountChart } from "./PremiumDiscountChart";
 import { StatsCards } from "./StatsCards";
 import { TimeRangeSelector } from "./TimeRangeSelector";
 import { subDays } from "date-fns";
@@ -12,6 +13,7 @@ interface MnavDataPoint {
   btcPrice: number;
   marketCap: number;
   btcHoldings: number;
+  premiumPct: number;
 }
 
 interface DashboardProps {
@@ -90,6 +92,7 @@ export function Dashboard({ allData }: DashboardProps) {
         marketCap={latest?.marketCap ?? 0}
         btcHoldings={latest?.btcHoldings ?? 0}
         mnavChange={mnavChange}
+        premiumPct={latest?.premiumPct ?? 0}
       />
 
       {/* Chart Section */}
@@ -101,6 +104,14 @@ export function Dashboard({ allData }: DashboardProps) {
           <TimeRangeSelector selected={range} onChange={setRange} />
         </div>
         <MnavChart data={filteredData} />
+      </div>
+
+      {/* Premium / Discount Chart */}
+      <div className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold text-foreground">
+          Premium / Discount to NAV
+        </h2>
+        <PremiumDiscountChart data={filteredData} />
       </div>
 
       {/* Info Section */}
