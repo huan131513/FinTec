@@ -3,6 +3,44 @@ export const dynamic = "force-dynamic";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/layout/Header";
 import { Dashboard } from "@/components/dashboard/Dashboard";
+import { fetchAndStoreBtcPrices } from "@/lib/data/btc-price";
+import { fetchAndStoreStockPrices } from "@/lib/data/stock-price";
+import { computeAndStoreMnav } from "@/lib/data/mnav-calculator";
+
+/**
+ * Auto-sync: if the latest mNAV record is older than yesterday,
+ * fetch the last 7 days of data from CoinGecko + Yahoo Finance and recompute.
+ * Runs silently — errors are logged but never break the page render.
+ */
+async function syncIfStale() {
+  const latest = await prisma.mnavRecord.findFirst({
+    orderBy: { date: "desc" },
+    select: { date: true },
+  });
+
+  // Consider data stale if it's from 2+ days ago (allows for yesterday's close)
+  const yesterday = new Date();
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+  yesterday.setUTCHours(0, 0, 0, 0);
+
+  if (!latest || latest.date < yesterday) {
+    console.log("[auto-sync] Data is stale, fetching latest 7 days…");
+    try {
+      await fetchAndStoreBtcPrices(7);
+      await fetchAndStoreStockPrices("MSTR", 7);
+      const company = await prisma.company.findUnique({
+        where: { ticker: "MSTR" },
+      });
+      if (company) {
+        await computeAndStoreMnav(company.id, "MSTR");
+      }
+      console.log("[auto-sync] Done.");
+    } catch (err) {
+      console.error("[auto-sync] Failed:", err);
+      // Don't throw — show whatever data is already in the DB
+    }
+  }
+}
 
 async function getMnavData() {
   const company = await prisma.company.findUnique({
@@ -42,6 +80,7 @@ async function getMnavData() {
 }
 
 export default async function Home() {
+  await syncIfStale();
   const { data } = await getMnavData();
 
   return (
