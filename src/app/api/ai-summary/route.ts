@@ -78,7 +78,12 @@ Reply in EXACTLY the following 4-section format. Each section starts with its la
 **Buy Point Analysis**
 [Based on the historical mNAV range of ${min.toFixed(2)}x–${max.toFixed(2)}x and the current reading of ${latest.mnav.toFixed(2)}x (${percentileRank.toFixed(0)}th percentile), assess whether current levels represent a historically attractive or expensive entry. Identify the mNAV zone that historically corresponded to better risk/reward (reference the low near ${min.toFixed(2)}x on ${minDate}). End with a one-sentence risk reminder that this is not financial advice.]
 
-Rules: use specific numbers, no bullet points inside paragraphs, professional but readable tone, each paragraph 2–4 sentences.`;
+HIGHLIGHTING RULE (mandatory):
+Wrap every key number, metric, and significant phrase in double curly braces {{like this}}.
+This includes: mNAV values (e.g. {{1.11x}}), percentages (e.g. {{11% premium}}), dollar amounts (e.g. {{$84,500}}), BTC amounts, time ranges (e.g. {{7-day}}), dates, percentile ranks, and any phrase describing an extreme or important signal (e.g. {{most expensive point}}, {{historical buy zone}}, {{lowest mNAV on record}}).
+Highlight generously — aim for 4–8 highlights per section.
+
+Other rules: use specific numbers, no bullet points inside paragraphs, professional but readable tone, each paragraph 2–4 sentences.`;
 }
 
 export async function POST(request: NextRequest) {

@@ -55,6 +55,24 @@ const SECTION_META: Record<
 };
 
 /**
+ * Render a text string that may contain {{highlighted}} tokens.
+ * Everything inside {{ }} is rendered as a red accent span.
+ */
+function renderHighlighted(text: string) {
+  const parts = text.split(/(\{\{.+?\}\})/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("{{") && part.endsWith("}}")) {
+      return (
+        <span key={i} className="font-semibold text-red-400">
+          {part.slice(2, -2)}
+        </span>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
+
+/**
  * Parse Gemini's **Section Title** + paragraph format into structured sections.
  * Falls back to plain paragraphs if formatting is unexpected.
  */
@@ -228,7 +246,7 @@ export function AiSummary({ data, range }: AiSummaryProps) {
                           <span>{meta.label}</span>
                         </div>
                         <p className="text-sm leading-relaxed text-foreground/85">
-                          {sec.content}
+                          {renderHighlighted(sec.content)}
                         </p>
                       </div>
                     );
@@ -240,7 +258,7 @@ export function AiSummary({ data, range }: AiSummaryProps) {
                       key={i}
                       className="text-sm leading-relaxed text-foreground/80"
                     >
-                      {sec.content}
+                      {renderHighlighted(sec.content)}
                     </p>
                   );
                 })}
