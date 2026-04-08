@@ -5,6 +5,7 @@ import { MnavChart } from "./MnavChart";
 import { PremiumDiscountChart } from "./PremiumDiscountChart";
 import { StatsCards } from "./StatsCards";
 import { TimeRangeSelector } from "./TimeRangeSelector";
+import { AiSummary } from "./AiSummary";
 import { subDays } from "date-fns";
 
 interface MnavDataPoint {
@@ -113,6 +114,9 @@ export function Dashboard({ allData }: DashboardProps) {
         </h2>
         <PremiumDiscountChart data={filteredData} />
       </div>
+
+      {/* AI Insight Section */}
+      <AiSummary data={filteredData} range={range} />
 
       {/* Info Section */}
       <div className="grid gap-4 md:grid-cols-2">
