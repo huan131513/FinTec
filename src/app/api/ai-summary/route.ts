@@ -103,13 +103,19 @@ export async function POST(request: NextRequest) {
       model: "gemini-2.5-flash",
       generationConfig: {
         temperature: 0.4,
-        maxOutputTokens: 1500,
+        maxOutputTokens: 4096,
       },
     });
 
     const prompt = buildPrompt(data, range);
     const result = await model.generateContent(prompt);
     const text = result.response.text().trim();
+
+    // Debug: log finish reason and token counts
+    const candidate = result.response.candidates?.[0];
+    console.log("[ai-summary] finishReason:", candidate?.finishReason);
+    console.log("[ai-summary] tokenCount:", result.response.usageMetadata);
+    console.log("[ai-summary] raw (first 300 chars):", text.slice(0, 300));
 
     return NextResponse.json({ summary: text });
   } catch (err) {
